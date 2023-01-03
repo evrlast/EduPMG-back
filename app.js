@@ -45,6 +45,8 @@ mongoose.connect(process.env.DATABASE_URL, {
     useNewUrlParser: true
 })
 
+mongoose.set('strictQuery', false);
+
 const db = mongoose.connection
 
 db.on('error', error => console.log(error))
@@ -63,9 +65,11 @@ app.post('/login', (req, res) => {
 
     if (login && password) {
         User.findOne({'login': login}, '_id password userType', async (err, person) => {
-            if (err) return res.sendStatus(401)
+            if (err)
+                return res.status(401).send({ error: "Username or password you entered are incorrect"})
 
-            if (person === null) return res.send()
+            if (person === null)
+                return res.status(401).send({ error: "Username or password you entered are incorrect"})
 
             try {
                 if (await bcrypt.compare(password, person.password)) {
@@ -84,7 +88,7 @@ app.post('/login', (req, res) => {
                         userType: person.userType
                     })
                 } else {
-                    return res.sendStatus(401)
+                    return res.status(401).send({ error: "Username or password you entered are incorrect"})
                 }
             } catch (err) {
                 throw err
@@ -92,14 +96,16 @@ app.post('/login', (req, res) => {
 
         })
     } else
-        return res.sendStatus(401)
+        return res.status(401).send({ error: "Username or password you entered are incorrect"})
 })
 
 
 app.post('/register', async (req, res) => {
     const data = req.body
 
-    if (isUserDataCorrect(data)) {
+    // const isValid = await isUserDataCorrect(data)
+
+    // if (isValid.status === 200) {
         const salt = await bcrypt.genSalt()
         const hashedPassword = await bcrypt.hash(data.password, salt)
 
@@ -116,22 +122,24 @@ app.post('/register', async (req, res) => {
 
         const user = new User(userData)
 
-        await user.save()
-
-        res.status(201).send()
-    } else res.sendStatus(400)
+        try {
+            await user.save()
+            res.status(201).send()
+        }
+        catch (error) {
+            let err
+            if (error.keyPattern.login) err = "Login is already in use"
+            if (error.keyPattern.email) err = "Email is already in use"
+            res.status(300).send({error: err})
+        }
 })
-
-function isUserDataCorrect(user) {
-    return !!(user.name && user.surname && user.login && user.email && user.password);
-}
 
 function checkTeacherCode(code) {
     return code === teacherCode
 }
 
 function generateAccessToken(user) {
-    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '300s'})
+    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '3000s'})
 }
 
 module.exports = app;

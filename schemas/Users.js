@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
     },
     login: {
         type: String,
+        unique: true,
         required: true
     },
     userType: {
@@ -19,6 +20,7 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
+        unique: true,
         required: true
     },
     password: {
